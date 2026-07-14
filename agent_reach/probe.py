@@ -16,7 +16,7 @@ not just file existence.
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from agent_reach.utils.process import utf8_subprocess_env
 
@@ -50,6 +50,7 @@ def probe_command(
     timeout: int = 10,
     retries: int = 0,
     package: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
 ) -> ProbeResult:
     """Actually execute `cmd *args` and classify the result.
 
@@ -66,7 +67,7 @@ def probe_command(
 
     last: Optional[ProbeResult] = None
     for _ in range(retries + 1):
-        last = _run_once(path, args, timeout, package or cmd)
+        last = _run_once(path, args, timeout, package or cmd, env)
         if last.ok:
             return last
         # missing/broken won't heal between retries — only transient
@@ -76,15 +77,24 @@ def probe_command(
     return last
 
 
-def _run_once(path: str, args: Sequence[str], timeout: int, package: str) -> ProbeResult:
+def _run_once(
+    path: str,
+    args: Sequence[str],
+    timeout: int,
+    package: str,
+    env: Optional[Mapping[str, str]] = None,
+) -> ProbeResult:
     try:
+        subprocess_env = utf8_subprocess_env()
+        if env:
+            subprocess_env.update(env)
         r = subprocess.run(
             [path, *args],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
-            env=utf8_subprocess_env(),
+            env=subprocess_env,
         )
     except FileNotFoundError:
         # which() found it but exec failed: the shebang interpreter is gone
