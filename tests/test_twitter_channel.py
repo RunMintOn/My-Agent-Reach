@@ -29,6 +29,25 @@ def test_check_twitter_cli_found_and_auth_ok():
     assert channel.active_backend == "twitter-cli"
 
 
+def test_check_twitter_cli_uses_credentials_saved_by_agent_reach():
+    """The health probe must use credentials persisted by configure twitter-cookies."""
+    channel = TwitterChannel()
+    config = Mock()
+    config.get.side_effect = lambda key: {
+        "twitter_auth_token": "saved-auth-token",
+        "twitter_ct0": "saved-ct0",
+    }.get(key)
+
+    with patch("shutil.which", return_value="/usr/local/bin/twitter"), patch(
+        "subprocess.run", return_value=_cp(stdout="ok: true\n", returncode=0)
+    ) as run:
+        status, _ = channel._check_twitter_cli(config)
+
+    assert status == "ok"
+    assert run.call_args.kwargs["env"]["TWITTER_AUTH_TOKEN"] == "saved-auth-token"
+    assert run.call_args.kwargs["env"]["TWITTER_CT0"] == "saved-ct0"
+
+
 def test_check_twitter_cli_found_auth_missing():
     """twitter-cli found + not_authenticated → warn about auth."""
     channel = TwitterChannel()

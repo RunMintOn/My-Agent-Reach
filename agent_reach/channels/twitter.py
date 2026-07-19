@@ -28,7 +28,7 @@ class TwitterChannel(Channel):
 
         for backend in self.ordered_backends(config):
             if backend == "twitter-cli":
-                result = self._check_twitter_cli()
+                result = self._check_twitter_cli(config)
             elif backend == "OpenCLI":
                 result = self._check_opencli()
             elif backend == "bird CLI (legacy)":
@@ -56,15 +56,30 @@ class TwitterChannel(Channel):
             "  uv tool install twitter-cli"
         )
 
-    def _check_twitter_cli(self):
+    def _check_twitter_cli(self, config=None):
         """探测 twitter-cli。返回 None 表示未安装，否则返回 (status, message)。
 
         `twitter status` 才是健康信号：已登录时输出 "ok: true"，
         未登录时以非零退出码输出 "not_authenticated"——工具本身是活的，
         所以 probe 的 error 状态也要看 output 内容再分类。
         """
+        env = None
+        if config:
+            auth_token = config.get("twitter_auth_token")
+            ct0 = config.get("twitter_ct0")
+            if auth_token and ct0:
+                env = {
+                    "TWITTER_AUTH_TOKEN": auth_token,
+                    "TWITTER_CT0": ct0,
+                }
+
         probe = probe_command(
-            "twitter", ["status"], timeout=15, retries=1, package="twitter-cli"
+            "twitter",
+            ["status"],
+            timeout=15,
+            retries=1,
+            package="twitter-cli",
+            env=env,
         )
         if probe.status == "missing":
             return None

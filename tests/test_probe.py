@@ -49,6 +49,18 @@ def test_healthy_command_returns_ok_with_output(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="shell script fixture is POSIX-only")
+def test_command_env_is_available_only_to_the_probed_process(tmp_path, monkeypatch):
+    _make_executable(
+        tmp_path / "env-tool", "#!/bin/sh\necho \"$PROBE_VALUE\"\n"
+    )
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ.get("PATH", ""))
+
+    r = probe_command("env-tool", env={"PROBE_VALUE": "from-probe-env"})
+    assert r.ok
+    assert r.output == "from-probe-env"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="shell script fixture is POSIX-only")
 def test_nonzero_exit_classified_as_error(tmp_path, monkeypatch):
     script = _make_executable(
         tmp_path / "failing-tool", "#!/bin/sh\necho 'boom' >&2\nexit 3\n"
